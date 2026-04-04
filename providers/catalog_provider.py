@@ -4,6 +4,7 @@ from urllib.parse import quote_plus
 
 import requests
 from providers.amazon_paapi import search_amazon_products
+from providers.browser_automation import get_browser_provider_status, load_browser_catalog
 
 
 SOURCES = {
@@ -30,6 +31,65 @@ def _is_placeholder(value):
         or "your_" in lowered
         or ".example" in lowered
     )
+
+
+def get_live_configuration_status():
+    status = {}
+    browser_status = get_browser_provider_status()
+
+    for platform, env_name in LIVE_ENDPOINT_ENV.items():
+        configured_value = os.getenv(env_name, "").strip()
+        browser_ready = browser_status.get(platform, {})
+        status[platform] = {
+            "configured": (
+                not _is_placeholder(configured_value)
+                or (
+                    browser_ready.get("playwright_installed")
+                    and browser_ready.get("session_saved")
+                    and browser_ready.get("search_url_configured")
+                    and browser_ready.get("selectors_configured")
+                )
+            ),
+            "type": "endpoint or browser session",
+            "env_name": env_name,
+            "browser_session_saved": browser_ready.get("session_saved", False),
+            "browser_ready": (
+                browser_ready.get("playwright_installed")
+                and browser_ready.get("session_saved")
+                and browser_ready.get("search_url_configured")
+                and browser_ready.get("selectors_configured")
+            ),
+        }
+
+    amazon_browser_ready = browser_status.get("Amazon", {})
+    amazon_env_names = [
+        "AMAZON_PAAPI_ACCESS_KEY",
+        "AMAZON_PAAPI_SECRET_KEY",
+        "AMAZON_PAAPI_PARTNER_TAG",
+    ]
+    amazon_ready = all(not _is_placeholder(os.getenv(env_name, "").strip()) for env_name in amazon_env_names)
+    status["Amazon"] = {
+        "configured": (
+            amazon_ready
+            or (
+                amazon_browser_ready.get("playwright_installed")
+                and amazon_browser_ready.get("session_saved")
+                and amazon_browser_ready.get("search_url_configured")
+                and amazon_browser_ready.get("selectors_configured")
+            )
+        ),
+        "type": "credentials or browser session",
+        "env_name": ", ".join(amazon_env_names),
+        "browser_session_saved": amazon_browser_ready.get("session_saved", False),
+        "browser_ready": (
+            amazon_browser_ready.get("playwright_installed")
+            and amazon_browser_ready.get("session_saved")
+            and amazon_browser_ready.get("search_url_configured")
+            and amazon_browser_ready.get("selectors_configured")
+        ),
+    }
+
+    return status
 
 
 def load_mock_catalog(platform):
@@ -83,14 +143,45 @@ def load_live_catalog(platform, product_requests, pincode):
 def get_catalogs(product_requests, pincode, data_mode):
     catalogs = {}
     warnings = []
+    browser_status = get_browser_provider_status()
 
     for platform in SOURCES:
         if data_mode == "live":
             try:
                 if platform == "Amazon":
-                    live_catalog = search_amazon_products(product_requests)
+                    try:
+                        live_catalog = search_amazon_products(product_requests)
+                    except Exception as amazon_error:
+                        browser_ready = browser_status.get(platform, {})
+                        if (
+                            browser_ready.get("playwright_installed")
+                            and browser_ready.get("session_saved")
+                            and browser_ready.get("search_url_configured")
+                            and browser_ready.get("selectors_configured")
+                        ):
+                            live_catalog = load_browser_catalog(platform, product_requests, pincode)
+                            warnings.append(
+                                f"{platform}: PA-API unavailable ({amazon_error}); browser session search used instead."
+                            )
+                        else:
+                            raise amazon_error
                 else:
-                    live_catalog = load_live_catalog(platform, product_requests, pincode)
+                    try:
+                        live_catalog = load_live_catalog(platform, product_requests, pincode)
+                    except Exception as endpoint_error:
+                        browser_ready = browser_status.get(platform, {})
+                        if (
+                            browser_ready.get("playwright_installed")
+                            and browser_ready.get("session_saved")
+                            and browser_ready.get("search_url_configured")
+                            and browser_ready.get("selectors_configured")
+                        ):
+                            live_catalog = load_browser_catalog(platform, product_requests, pincode)
+                            warnings.append(
+                                f"{platform}: API endpoint unavailable ({endpoint_error}); browser session search used instead."
+                            )
+                        else:
+                            raise endpoint_error
                 if live_catalog:
                     catalogs[platform] = live_catalog
                     continue

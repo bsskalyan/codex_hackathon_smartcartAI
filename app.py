@@ -1,7 +1,8 @@
 import pandas as pd
 import streamlit as st
 
-from providers.catalog_provider import get_catalogs
+from providers.browser_automation import get_browser_provider_status
+from providers.catalog_provider import get_catalogs, get_live_configuration_status
 from utils.comparator import (
     compare_product_list,
     get_quantity_options,
@@ -276,6 +277,40 @@ with st.container(border=True):
     with top_col4:
         auto_compare = st.toggle("Auto Compare", value=True)
 
+    if data_mode == "live":
+        with st.expander("Browser Session Setup", expanded=False):
+            browser_status = get_browser_provider_status()
+            status_rows = []
+
+            for platform, details in browser_status.items():
+                status_rows.append(
+                    {
+                        "Platform": platform,
+                        "Playwright Ready": "Yes" if details["playwright_installed"] else "No",
+                        "Saved Session": "Yes" if details["session_saved"] else "No",
+                        "Search URL Ready": "Yes" if details["search_url_configured"] else "No",
+                        "Selectors Ready": "Yes" if details["selectors_configured"] else "No",
+                        "Session File": details["session_path"],
+                    }
+                )
+
+            st.caption(
+                "Use this when you want to log into grocery apps in a real browser and reuse the saved session for live searches."
+            )
+            st.dataframe(pd.DataFrame(status_rows), use_container_width=True, hide_index=True)
+            st.code("pip install playwright\npython -m playwright install chromium", language="bash")
+
+            platform_for_session = st.selectbox(
+                "Platform For Session Login",
+                list(browser_status.keys()),
+                key="browser_session_platform",
+            )
+            st.caption("Run this in a terminal, log in manually in the browser, then press Enter in that terminal to save the session.")
+            st.code(browser_status[platform_for_session]["login_command"], language="bash")
+            st.caption(
+                "To enable browser-based product scraping for that platform, also add search URL and selector env vars in `.env`."
+            )
+
     quick_col1, quick_col2 = st.columns([1, 1])
     with quick_col1:
         if st.button("Add Item", use_container_width=True):
@@ -352,10 +387,38 @@ if not product_requests:
     st.info("Add at least one product to start comparing baskets.")
 
 if should_compare and product_requests:
-    catalogs, provider_warnings = get_catalogs(product_requests, pincode, data_mode)
+    live_configuration = get_live_configuration_status()
 
     if data_mode == "live":
-        st.info("Live mode is enabled. Platforms without configured endpoints automatically fall back to mock catalog data.")
+        configured_platforms = [name for name, details in live_configuration.items() if details["configured"]]
+        missing_platforms = [name for name, details in live_configuration.items() if not details["configured"]]
+
+        if configured_platforms:
+            st.info(
+                "Live mode is enabled. Configured providers: "
+                + ", ".join(configured_platforms)
+                + ". Unconfigured providers will fall back to mock data."
+            )
+        else:
+            st.error(
+                "Live mode is selected, but no live providers are configured in `.env`. "
+                "Add real endpoint URLs or Amazon PA-API credentials to use live results."
+            )
+
+        if missing_platforms:
+            missing_df = pd.DataFrame(
+                [
+                    {
+                        "Platform": name,
+                        "Required Setup": live_configuration[name]["type"],
+                        "Environment Variable(s)": live_configuration[name]["env_name"],
+                    }
+                    for name in missing_platforms
+                ]
+            )
+            st.dataframe(missing_df, use_container_width=True, hide_index=True)
+
+    catalogs, provider_warnings = get_catalogs(product_requests, pincode, data_mode)
 
     for warning in provider_warnings:
         st.caption(warning)

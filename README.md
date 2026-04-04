@@ -1,31 +1,34 @@
 # SmartCart AI
 
-SmartCart AI is a Streamlit app for comparing grocery baskets across multiple platforms and helping users decide where to buy at the best overall value.
+SmartCart AI is a Streamlit-based grocery basket comparison app. It helps a user build a cart, compare prices across multiple platforms, and decide whether buying from one platform or splitting the basket is the better option.
 
-## Why We Designed This App
+## Why I Designed This App
 
-Online grocery shopping is not just about finding the lowest price for one item. People usually care about:
+Quick-commerce and grocery apps make it easy to order products, but they also create a new problem: the cheapest item is not always the cheapest basket.
+
+When a real user shops online, they usually care about more than one thing:
 
 - total basket cost
 - delivery speed
 - delivery fees
 - discounts
-- whether splitting the basket across platforms is cheaper
+- availability of all items in one place
+- whether splitting the basket across platforms saves money
 
-SmartCart AI was designed to solve that problem in one place. It compares products across platforms, calculates the final payable amount, and recommends the better buying strategy.
+I designed SmartCart AI to solve that decision in one dashboard. Instead of checking each app separately, the user can enter a basket once and compare the overall outcome.
 
 ## What The App Does
 
-- compares multiple grocery products across platforms
-- supports quantity-based shopping
-- uses fuzzy matching to match similar product names
+- lets the user build a grocery basket with multiple items
+- supports quantity-aware shopping such as `1 litre`, `500 g`, `2 pcs`
+- compares basket pricing across supported platforms
 - calculates subtotal, delivery fee, discount, and final payable amount
-- shows the best single-platform option
-- builds an optimized basket plan
-- builds a split basket plan
-- compares split basket cost vs best platform cost
+- recommends a best single-platform option
+- generates an optimized item-by-item basket plan
+- generates a split-basket recommendation when buying from multiple platforms is cheaper
+- supports both mock data and partial live integrations
 
-## Platforms Included
+## Current Platforms
 
 - Blinkit
 - Instamart
@@ -33,73 +36,246 @@ SmartCart AI was designed to solve that problem in one place. It compares produc
 - Dmart
 - Zepto
 
+## Current UI Features
+
+- colorful, eye-friendly Streamlit dashboard
+- live basket updates with `Auto Compare`
+- add and remove item rows dynamically
+- mock-data preset baskets
+- platform spotlight cards
+- comparison charts and tables
+- optimized basket and split basket tabs
+
 ## Project Structure
 
-- [app.py](/d:/codex/SmartCartAI/smartcart-ai/LIVE_APP/app.py): Streamlit user interface
-- [utils/comparator.py](/d:/codex/SmartCartAI/smartcart-ai/LIVE_APP/utils/comparator.py): comparison, pricing, and optimization logic
-- [utils/matcher.py](/d:/codex/SmartCartAI/smartcart-ai/LIVE_APP/utils/matcher.py): fuzzy product matching
-- [data](/d:/codex/SmartCartAI/smartcart-ai/LIVE_APP/data): mock platform catalog JSON files
+- [app.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/app.py): main Streamlit app and UI
+- [providers/catalog_provider.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/providers/catalog_provider.py): mock/live catalog loading and provider fallback logic
+- [providers/browser_automation.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/providers/browser_automation.py): Playwright-based browser-session support
+- [providers/amazon_paapi.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/providers/amazon_paapi.py): Amazon PA-API integration
+- [utils/comparator.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/utils/comparator.py): basket comparison, totals, and optimization logic
+- [utils/matcher.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/utils/matcher.py): fuzzy product matching
+- [scripts/browser_session_login.py](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/scripts/browser_session_login.py): helper script to save logged-in browser sessions
+- [data](/d:/codex/codex_smartcartAI/codex_hackathon_smartcartAI/data): mock JSON catalogs
 
-## How To Use
+## How To Run
 
-1. Run the app with Streamlit.
-2. Enter the `Pincode`.
-3. Select the `Recommendation Mode`.
-4. Enter a product name in the product row.
-5. Select quantity from the dropdown.
-6. Click `Add Item` to add another product row.
-7. Click `Compare Basket`.
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+If you want browser-session live mode:
+
+```bash
+python -m playwright install chromium
+```
+
+Run the app:
+
+```bash
+streamlit run app.py --server.port 8503
+```
+
+Open:
+
+```text
+http://localhost:8503
+```
+
+## How To Use The App
+
+1. Open the app in the browser.
+2. Enter a `Pincode`.
+3. Choose a `Recommendation Mode`:
+   - `Cheapest`
+   - `Fastest`
+   - `Best Value`
+4. Choose a `Data Source`:
+   - `Mock Catalog`
+   - `Live Portals`
+5. Add products, pack sizes, and counts.
+6. Use `Add Item` or `Remove Last` to adjust the basket.
+7. Use `Reset Basket` to clear the basket.
+8. Turn on `Auto Compare` if you want instant updates while editing.
+9. Review the comparison, optimized basket, and split basket tabs.
+
+## Mock Mode
+
+Mock mode is the easiest way to demo the app.
+
+It includes:
+
+- local static platform catalogs
+- preset baskets
+- no external login required
+- stable and repeatable comparison results
+
+## Live Mode
+
+Live mode currently supports two integration styles:
+
+- direct API or endpoint mode
+- browser-session mode using Playwright
+
+### 1. API Or Endpoint Mode
+
+This is the original live design.
+
+You can configure provider endpoints in `.env`:
+
+```env
+LIVE_BLINKIT_SEARCH_URL=https://your-endpoint/search?query={query}&pincode={pincode}
+LIVE_INSTAMART_SEARCH_URL=https://your-endpoint/search?query={query}&pincode={pincode}
+LIVE_DMART_SEARCH_URL=https://your-endpoint/search?query={query}&pincode={pincode}
+LIVE_ZEPTO_SEARCH_URL=https://your-endpoint/search?query={query}&pincode={pincode}
+```
+
+Amazon also supports PA-API:
+
+```env
+AMAZON_PAAPI_ACCESS_KEY=your_access_key
+AMAZON_PAAPI_SECRET_KEY=your_secret_key
+AMAZON_PAAPI_PARTNER_TAG=your_partner_tag
+AMAZON_PAAPI_HOST=webservices.amazon.in
+AMAZON_PAAPI_REGION=eu-west-1
+AMAZON_PAAPI_MARKETPLACE=www.amazon.in
+```
+
+### 2. Browser-Session Mode
+
+This is useful when there is no easy public API and the user can log into the website manually.
+
+How it works:
+
+1. Install Playwright.
+2. Open the provider login page in an automated browser.
+3. Log in manually.
+4. Save the browser session to `.sessions`.
+5. Let SmartCart reuse that session to search products.
+
+Save a session example:
+
+```bash
+python scripts/browser_session_login.py --platform "Blinkit" --session-path ".sessions/blinkit_session.json"
+```
+
+Other examples:
+
+```bash
+python scripts/browser_session_login.py --platform "Amazon" --session-path ".sessions/amazon_session.json"
+python scripts/browser_session_login.py --platform "Zepto" --session-path ".sessions/zepto_session.json"
+python scripts/browser_session_login.py --platform "Dmart" --session-path ".sessions/dmart_session.json"
+python scripts/browser_session_login.py --platform "Instamart" --session-path ".sessions/instamart_session.json"
+```
+
+Then configure browser search support in `.env`.
+
+Example for Amazon:
+
+```env
+BROWSER_AMAZON_LOGIN_URL=https://www.amazon.in/ap/signin
+BROWSER_AMAZON_SEARCH_URL=https://www.amazon.in/s?k={query}
+BROWSER_AMAZON_PRODUCT_CARD_SELECTOR=[data-component-type="s-search-result"]
+BROWSER_AMAZON_NAME_SELECTOR=[data-cy="title-recipe"] a h2 span
+BROWSER_AMAZON_PRICE_SELECTOR=.a-price .a-offscreen
+BROWSER_AMAZON_DELIVERY_SELECTOR=[data-cy="delivery-recipe"]
+BROWSER_AMAZON_WAIT_SELECTOR=[data-component-type="s-search-result"]
+```
+
+For Blinkit, Zepto, Dmart, and Instamart, you also need provider-specific search URLs and CSS selectors.
 
 ## Quantity Behavior
 
-The app also interprets quantity in a more natural way for some products:
+The app infers more natural quantity units for some products:
 
-- `milk`, `oil`, `juice` -> quantity is treated as `litre`
-- `sugar`, `rice`, `dal`, `atta`, `salt`, `flour` -> quantity is treated as `kg`
-- other products default to `pcs`
+- `milk`, `oil`, `juice` -> `litre`
+- `sugar`, `rice`, `dal`, `atta`, `salt`, `flour` -> `kg`
+- other items -> `pcs`
 
 Examples:
 
-- `milk` + quantity `1` -> `1 litre`
-- `sugar` + quantity `2` -> `2 kg`
-- `bread` + quantity `3` -> `3 pcs`
+- `milk` + `1 litre`
+- `sugar` + `2 kg`
+- `bread` + `3 pcs`
 
-## What You Will See
+## What The User Sees
 
-After searching, the app shows:
+After comparison, the app can show:
 
-- `Platform Comparison`
-- `Best Price`
-- `Best Single Platform`
-- `Savings`
-- `Optimized Basket Plan`
-- `Item Price Details`
-- `Split Basket Summary`
-- `Final Suggestion`
+- platform comparison overview
+- platform spotlight cards
+- best price summary
+- recommended platform
+- potential savings
+- optimized basket plan
+- split basket plan
+- matched item price details
+- final suggestion
 
-## Example
+## Current Working Status
 
-If you enter:
+At the current stage of the project:
 
-- milk -> 1
-- sugar -> 2
-- bread -> 1
+- mock mode is stable
+- Amazon browser-session live mode is partially working
+- Blinkit may be blocked by Cloudflare depending on IP/session
+- Instamart is not fully configured yet
+- Dmart browser session exists but still needs live selector wiring and validation
+- Zepto browser session exists but still needs live selector wiring and validation
 
-the app will:
+## Limitations
 
-- find the closest matching products across all platforms
-- calculate each platform's final payable amount
-- generate an optimized basket plan
-- generate a split basket plan
-- tell you whether the split basket or the best single platform is the better choice
+- live mode is not fully production-ready yet
+- some platforms may block automated browsing
+- browser sessions can expire
+- OTP, CAPTCHA, or anti-bot systems may interrupt login flows
+- provider page structures can change at any time
+- fuzzy matching can still return related but imperfect products
+- Amazon browser results are improved, but still need stronger grocery-specific filtering
+- some providers still fall back to mock data when live config is missing
+- the app currently depends on manually configured CSS selectors for browser scraping
 
-## Data Source
+## Why These Limitations Exist
 
-This project currently uses local mock JSON data only. No external API is required.
+This project combines price comparison, fuzzy matching, and live commerce-site access. That is naturally difficult because:
 
-## Run The App
+- every provider has a different UI
+- many providers do not expose easy public APIs
+- browser automation is fragile compared to official APIs
+- grocery product names are noisy and inconsistent across platforms
 
-```bash
-cd LIVE_APP
-streamlit run app.py
-```
+So the hardest part is not the UI or math. The hardest part is reliable live data collection and clean product matching.
+
+## Next Updates
+
+Planned and recommended next upgrades:
+
+- improve Amazon result filtering for grocery relevance
+- fully wire Dmart live browser search
+- fully wire Zepto live browser search
+- add Instamart browser-session support end to end
+- improve provider-specific selectors and search strategies
+- strengthen product matching using category-aware filters
+- detect and suppress obviously bad matches
+- cache live search results for faster comparison
+- add better status messages for blocked or expired sessions
+- optionally add a small backend service for provider automation instead of keeping everything in Streamlit
+
+## Recommended Demo Flow
+
+If you want the safest demo:
+
+1. Start with `Mock Catalog`.
+2. Use a preset basket.
+3. Show platform comparison and split basket logic.
+4. Switch to `Live Portals`.
+5. Demonstrate Amazon browser-session results as the current live example.
+
+## Summary
+
+SmartCart AI is designed to answer a practical shopping question:
+
+`Where should I buy my full cart for the best real outcome?`
+
+The app already demonstrates the full comparison experience well in mock mode and has started supporting real live-provider flows through browser sessions. The strongest next step is improving and stabilizing provider-specific live integrations.
