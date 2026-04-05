@@ -5,6 +5,10 @@ from urllib.parse import quote_plus
 import requests
 from providers.amazon_paapi import search_amazon_products
 from providers.browser_automation import get_browser_provider_status, load_browser_catalog
+from utils.env_loader import load_live_app_env
+
+
+load_live_app_env()
 
 
 SOURCES = {
@@ -12,7 +16,9 @@ SOURCES = {
     "Instamart": "data/instamart.json",
     "Amazon": "data/amazon.json",
     "Dmart": "data/dmart.json",
-    "Zepto": "data/zetpo.json",
+    "Zepto": "data/zepto.json",
+    "Flipkart": "data/flipkart.json",
+    "BigBasket": "data/bigbasket.json",
 }
 
 LIVE_ENDPOINT_ENV = {
@@ -20,6 +26,8 @@ LIVE_ENDPOINT_ENV = {
     "Instamart": "LIVE_INSTAMART_SEARCH_URL",
     "Dmart": "LIVE_DMART_SEARCH_URL",
     "Zepto": "LIVE_ZEPTO_SEARCH_URL",
+    "Flipkart": "LIVE_FLIPKART_SEARCH_URL",
+    "BigBasket": "LIVE_BIGBASKET_SEARCH_URL",
 }
 
 
@@ -140,12 +148,20 @@ def load_live_catalog(platform, product_requests, pincode):
     return _normalize_live_items(response.json())
 
 
-def get_catalogs(product_requests, pincode, data_mode):
+def _format_error(error):
+    text = str(error).strip()
+    if text:
+        return text
+    return type(error).__name__
+
+
+def get_catalogs(product_requests, pincode, data_mode, selected_platforms=None, fallback_to_mock_on_live_failure=True):
     catalogs = {}
     warnings = []
     browser_status = get_browser_provider_status()
+    platforms_to_use = selected_platforms or list(SOURCES.keys())
 
-    for platform in SOURCES:
+    for platform in platforms_to_use:
         if data_mode == "live":
             try:
                 if platform == "Amazon":
@@ -161,7 +177,7 @@ def get_catalogs(product_requests, pincode, data_mode):
                         ):
                             live_catalog = load_browser_catalog(platform, product_requests, pincode)
                             warnings.append(
-                                f"{platform}: PA-API unavailable ({amazon_error}); browser session search used instead."
+                                f"{platform}: PA-API unavailable ({_format_error(amazon_error)}); browser session search used instead."
                             )
                         else:
                             raise amazon_error
@@ -178,17 +194,26 @@ def get_catalogs(product_requests, pincode, data_mode):
                         ):
                             live_catalog = load_browser_catalog(platform, product_requests, pincode)
                             warnings.append(
-                                f"{platform}: API endpoint unavailable ({endpoint_error}); browser session search used instead."
+                                f"{platform}: API endpoint unavailable ({_format_error(endpoint_error)}); browser session search used instead."
                             )
                         else:
                             raise endpoint_error
                 if live_catalog:
                     catalogs[platform] = live_catalog
                     continue
-                warnings.append(f"{platform}: live source returned no items, using mock data.")
+                if fallback_to_mock_on_live_failure:
+                    warnings.append(f"{platform}: live source returned no items, using mock data.")
+                else:
+                    warnings.append(f"{platform}: live source returned no items.")
             except Exception as error:
-                warnings.append(f"{platform}: live fetch failed ({error}), using mock data.")
+                if fallback_to_mock_on_live_failure:
+                    warnings.append(f"{platform}: live fetch failed ({_format_error(error)}), using mock data.")
+                else:
+                    warnings.append(f"{platform}: live fetch failed ({_format_error(error)}).")
 
-        catalogs[platform] = load_mock_catalog(platform)
+        if data_mode == "live" and not fallback_to_mock_on_live_failure:
+            catalogs[platform] = []
+        else:
+            catalogs[platform] = load_mock_catalog(platform)
 
     return catalogs, warnings

@@ -8,6 +8,8 @@ SUPPORTED_PLATFORMS = {
     "Amazon": "https://www.amazon.in/ap/signin",
     "Dmart": "https://www.dmart.in/",
     "Zepto": "https://www.zeptonow.com/",
+    "Flipkart": "https://www.flipkart.com/",
+    "BigBasket": "https://www.bigbasket.com/",
 }
 
 

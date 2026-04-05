@@ -9,7 +9,9 @@ SOURCES = {
     "Instamart": "data/instamart.json",
     "Amazon": "data/amazon.json",
     "Dmart": "data/dmart.json",
-    "Zepto": "data/zetpo.json",
+    "Zepto": "data/zepto.json",
+    "Flipkart": "data/flipkart.json",
+    "BigBasket": "data/bigbasket.json",
 }
 
 PLATFORM_CHARGES = {
@@ -18,6 +20,8 @@ PLATFORM_CHARGES = {
     "Amazon": {"delivery_fee": 25, "discount": 5},
     "Dmart": {"delivery_fee": 10, "discount": 7},
     "Zepto": {"delivery_fee": 14, "discount": 8},
+    "Flipkart": {"delivery_fee": 20, "discount": 9},
+    "BigBasket": {"delivery_fee": 16, "discount": 11},
 }
 
 WEIGHT_KEYWORDS = {"sugar", "rice", "dal", "atta", "salt", "flour", "paneer", "curd", "butter", "cheese", "tea", "coffee"}
@@ -132,7 +136,26 @@ def delivery_to_minutes(delivery_text):
     return 99999
 
 
-def find_best_match(products, requested_product):
+def _pack_size_distance(requested_amount, requested_unit, matched_product_name):
+    pack_amount, pack_unit = extract_pack_size(matched_product_name, requested_unit)
+    comparable_unit = pack_unit
+
+    if requested_unit != pack_unit:
+        lowered_name = matched_product_name.lower()
+        liquid_like = any(keyword in lowered_name for keyword in LITRE_KEYWORDS)
+        if requested_unit == "litre" and pack_unit == "kg" and liquid_like:
+            comparable_unit = "litre"
+        else:
+            return 9999
+
+    if requested_amount <= 0 or comparable_unit != requested_unit:
+        return 9999
+
+    return abs(pack_amount - requested_amount)
+
+
+def find_best_match(products, requested_product, requested_amount=1, requested_unit=None):
+    effective_unit = requested_unit or infer_quantity_unit(requested_product)
     scored_matches = []
 
     for item in products:
@@ -140,6 +163,7 @@ def find_best_match(products, requested_product):
             scored_matches.append(
                 (
                     product_similarity(requested_product, item["name"]),
+                    _pack_size_distance(requested_amount, effective_unit, item["name"]),
                     item,
                 )
             )
@@ -147,8 +171,8 @@ def find_best_match(products, requested_product):
     if not scored_matches:
         return None
 
-    scored_matches.sort(key=lambda entry: (-entry[0], entry[1]["price"]))
-    return scored_matches[0][1]
+    scored_matches.sort(key=lambda entry: (-entry[0], entry[1], entry[2]["price"]))
+    return scored_matches[0][2]
 
 
 def compare_products(product_name, catalogs=None):
@@ -183,11 +207,12 @@ def compare_product_list(product_requests, catalogs=None):
 
         for request in product_requests:
             requested_product = request["name"]
+            requested_display_name = request.get("display_name", requested_product)
             quantity = request["quantity"]
             quantity_unit = request["quantity_unit"]
             quantity_label = request["quantity_label"]
             item_count = request.get("item_count", 1)
-            best_match = find_best_match(products, requested_product)
+            best_match = find_best_match(products, requested_product, quantity, quantity_unit)
 
             if best_match:
                 pack_total = calculate_item_total(
@@ -200,7 +225,7 @@ def compare_product_list(product_requests, catalogs=None):
                 matched_items.append(
                     {
                         "Platform": platform,
-                        "Requested Product": requested_product,
+                        "Requested Product": requested_display_name,
                         "Matched Product": best_match["name"],
                         "Unit Price": best_match["price"],
                         "Quantity": quantity,
@@ -297,12 +322,14 @@ def optimize_basket(product_list, catalogs=None):
     for product_request in product_list:
         if isinstance(product_request, dict):
             product_name = product_request["name"]
+            display_name = product_request.get("display_name", product_name)
             quantity = product_request["quantity"]
             quantity_unit = product_request["quantity_unit"]
             quantity_label = product_request["quantity_label"]
             item_count = product_request.get("item_count", 1)
         else:
             product_name = product_request
+            display_name = product_request
             quantity = 1
             quantity_unit = "pcs"
             quantity_label = "1 pcs"
@@ -311,13 +338,12 @@ def optimize_basket(product_list, catalogs=None):
         cheapest_item = None
 
         for platform, products in available_catalogs.items():
-            best_match = find_best_match(products, product_name)
-
+            best_match = find_best_match(products, product_name, quantity, quantity_unit)
             if not best_match:
                 continue
 
             item_option = {
-                "Product": product_name,
+                "Product": display_name,
                 "Matched Product": best_match["name"],
                 "Platform": platform,
                 "Price": best_match["price"],
@@ -353,6 +379,7 @@ def optimize_split_basket(product_requests, catalogs=None):
 
     for request in product_requests:
         requested_product = request["name"]
+        requested_display_name = request.get("display_name", requested_product)
         quantity = request["quantity"]
         quantity_unit = request["quantity_unit"]
         quantity_label = request["quantity_label"]
@@ -360,14 +387,14 @@ def optimize_split_basket(product_requests, catalogs=None):
         cheapest_option = None
 
         for platform, products in available_catalogs.items():
-            best_match = find_best_match(products, requested_product)
+            best_match = find_best_match(products, requested_product, quantity, quantity_unit)
 
             if not best_match:
                 continue
 
             option = {
                 "Platform": platform,
-                "Requested Product": requested_product,
+                "Requested Product": requested_display_name,
                 "Matched Product": best_match["name"],
                 "Unit Price": best_match["price"],
                 "Quantity": quantity,

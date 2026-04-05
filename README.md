@@ -28,7 +28,17 @@ I designed SmartCart AI to solve that decision in one dashboard. Instead of chec
 - generates a split-basket recommendation when buying from multiple platforms is cheaper
 - supports both mock data and partial live integrations
 
-## Current Platforms
+## Vendor List
+
+- Blinkit
+- Instamart
+- Amazon
+- Dmart
+- Zepto
+- Flipkart
+- BigBasket
+
+## Current Integrated Platforms
 
 - Blinkit
 - Instamart
@@ -167,6 +177,8 @@ python scripts/browser_session_login.py --platform "Amazon" --session-path ".ses
 python scripts/browser_session_login.py --platform "Zepto" --session-path ".sessions/zepto_session.json"
 python scripts/browser_session_login.py --platform "Dmart" --session-path ".sessions/dmart_session.json"
 python scripts/browser_session_login.py --platform "Instamart" --session-path ".sessions/instamart_session.json"
+python scripts/browser_session_login.py --platform "Flipkart" --session-path ".sessions/flipkart_session.json"
+python scripts/browser_session_login.py --platform "BigBasket" --session-path ".sessions/bigbasket_session.json"
 ```
 
 Then configure browser search support in `.env`.
@@ -184,6 +196,7 @@ BROWSER_AMAZON_WAIT_SELECTOR=[data-component-type="s-search-result"]
 ```
 
 For Blinkit, Zepto, Dmart, and Instamart, you also need provider-specific search URLs and CSS selectors.
+The same browser-session pattern can also be used for Flipkart and BigBasket.
 
 ## Quantity Behavior
 
@@ -223,6 +236,8 @@ At the current stage of the project:
 - Instamart is not fully configured yet
 - Dmart browser session exists but still needs live selector wiring and validation
 - Zepto browser session exists but still needs live selector wiring and validation
+- Flipkart has been added to the project and currently works in mock mode
+- BigBasket has been added to the project and currently works in mock mode
 
 ## Limitations
 
@@ -255,6 +270,8 @@ Planned and recommended next upgrades:
 - fully wire Dmart live browser search
 - fully wire Zepto live browser search
 - add Instamart browser-session support end to end
+- add Flipkart live browser-session configuration
+- add BigBasket live browser-session configuration
 - improve provider-specific selectors and search strategies
 - strengthen product matching using category-aware filters
 - detect and suppress obviously bad matches
